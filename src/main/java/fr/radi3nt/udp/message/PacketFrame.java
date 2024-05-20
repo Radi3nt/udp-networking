@@ -1,18 +1,34 @@
 package fr.radi3nt.udp.message;
 
+import fr.radi3nt.udp.message.frame.FrameHeader;
 import fr.radi3nt.udp.message.frame.FrameType;
+
+import java.nio.ByteBuffer;
 
 public class PacketFrame {
 
-    public final FrameType frameType;
-    public final byte[] data;
+    private final FrameHeader header;
+    private final byte[] content;
 
-    public PacketFrame(FrameType frameType, byte[] data) {
-        this.frameType = frameType;
-        this.data = data;
+    public PacketFrame(FrameHeader header, byte[] content) {
+        this.header = header;
+        this.content = content;
     }
 
-    public int size() {
-        return data.length;
+    public void encode(ByteBuffer buffer) {
+        header.encode(buffer);
+        buffer.put(content);
+    }
+
+    public ByteBuffer getContent() {
+        return ByteBuffer.wrap(content);
+    }
+
+    public int getTotalFrameSize() {
+        return header.getTotalSize();
+    }
+
+    public FrameType getType() {
+        return header.frameType;
     }
 }

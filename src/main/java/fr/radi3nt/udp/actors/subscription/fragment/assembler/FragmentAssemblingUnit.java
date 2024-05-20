@@ -1,10 +1,7 @@
 package fr.radi3nt.udp.actors.subscription.fragment.assembler;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 public class FragmentAssemblingUnit {
 
@@ -18,8 +15,10 @@ public class FragmentAssemblingUnit {
     public Collection<MissingFragments> getMissingParts() {
         Collection<MissingFragments> missingFragments = new ArrayList<>();
         for (PacketTerm value : terms.values()) {
-            if (value.termId!=currentTerm)
-                missingFragments.add(new MissingFragments(value.receivedFragments()));
+            if (value.termId!=currentTerm) {
+                int[] missingFragmentsArray = value.missingFragmentArray();
+                missingFragments.add(new MissingFragments(missingFragmentsArray));
+            }
         }
         return missingFragments;
     }

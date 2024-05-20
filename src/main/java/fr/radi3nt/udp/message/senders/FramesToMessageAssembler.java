@@ -8,17 +8,17 @@ import java.util.Collection;
 import java.util.Queue;
 import java.util.function.Consumer;
 
-public class FramesToFragmentAssembler {
+public class FramesToMessageAssembler {
 
     private final int limitPacketSize;
-    private final Consumer<PacketMessage> fragmentConsumer;
+    private final Consumer<PacketMessage> messageConsumer;
 
-    private Collection<PacketFrame> currentFragment = new ArrayList<>();
-    private int fragmentSize = 0;
+    private Collection<PacketFrame> currentMessageFrames = new ArrayList<>();
+    private int messageSize = 0;
 
-    public FramesToFragmentAssembler(int limitPacketSize, Consumer<PacketMessage> fragmentConsumer) {
+    public FramesToMessageAssembler(int limitPacketSize, Consumer<PacketMessage> messageConsumer) {
         this.limitPacketSize = limitPacketSize;
-        this.fragmentConsumer = fragmentConsumer;
+        this.messageConsumer = messageConsumer;
     }
 
     public void assemble(Queue<PacketFrame> frames) {
@@ -29,32 +29,32 @@ public class FramesToFragmentAssembler {
                 sendProcess();
             }
 
-            fragmentSize+=poll.size();
-            currentFragment.add(poll);
+            messageSize += poll.getTotalFrameSize();
+            currentMessageFrames.add(poll);
         }
 
         sendProcess();
     }
 
     private void sendProcess() {
-        if (currentFragment.isEmpty())
+        if (currentMessageFrames.isEmpty())
             return;
         sendFragment();
         resetFragment();
     }
 
     private void resetFragment() {
-        currentFragment = new ArrayList<>();
-        fragmentSize = 0;
+        currentMessageFrames = new ArrayList<>();
+        messageSize = 0;
     }
 
     private void sendFragment() {
-        fragmentConsumer.accept(new PacketMessage(fragmentSize, currentFragment));
+        messageConsumer.accept(new PacketMessage(messageSize, currentMessageFrames));
     }
 
 
     private boolean doesntFit(PacketFrame poll) {
-        return fragmentSize + poll.size() > limitPacketSize;
+        return messageSize + poll.getTotalFrameSize() > limitPacketSize;
     }
 
 }

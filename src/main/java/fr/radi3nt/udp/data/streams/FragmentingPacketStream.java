@@ -17,12 +17,12 @@ public class FragmentingPacketStream implements PacketStream {
 
     @Override
     public void packet(FrameDataHeader header, byte[] data) throws Exception {
-        int split = data.length/maxSize;
+        int split = (int) Math.ceil((float) data.length/maxSize);
 
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-        for (int fragmentPart = 0; fragmentPart <= split; fragmentPart++) {
+        for (int fragmentPart = 0; fragmentPart < split; fragmentPart++) {
             FrameDataHeader child = header.child();
-            int encodingMessage = fragmentPart | (fragmentPart==split ? LAST_MESSAGE_HINT : 0);
+            int encodingMessage = fragmentPart | (fragmentPart==(split-1) ? LAST_MESSAGE_HINT : 0);
             child.stream.writeInt(encodingMessage);
 
             outputStream.reset();

@@ -1,37 +1,36 @@
 package fr.radi3nt.udp.actors.connection;
 
 import fr.radi3nt.udp.actors.subscription.Subscription;
-import fr.radi3nt.udp.message.recievers.BufferingPacketFrameReceiver;
+import fr.radi3nt.udp.message.recievers.remote.DatagramPacketFrameReceiver;
 import fr.radi3nt.udp.message.recievers.PacketFrameReceiver;
-import fr.radi3nt.udp.message.senders.BufferingPacketFrameSender;
+import fr.radi3nt.udp.message.senders.remote.DatagramPacketFrameSender;
 import fr.radi3nt.udp.message.senders.PacketFrameSender;
 
 import java.io.IOException;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.nio.channels.DatagramChannel;
 
 public class UdpConnection {
 
-    private static final int UDP_PACKET_SIZE = 512;
+    public static final int UDP_PACKET_SIZE = 512;
 
     private final PacketFrameSender packetFrameSender;
     private final PacketFrameReceiver packetFrameReceiver;
 
     private final Subscription handler;
 
-    private final DatagramChannel datagramChannel;
-
-    public UdpConnection(SocketAddress sending, SocketAddress listening, Subscription handler) throws IOException {
+    public UdpConnection(PacketFrameSender sender, PacketFrameReceiver receiver, Subscription handler) {
         this.handler = handler;
-        datagramChannel = DatagramChannel.open();
+        packetFrameSender = sender;
+        packetFrameReceiver = receiver;
+    }
+
+    public static UdpConnection remote(SocketAddress sending, SocketAddress listening, Subscription handler) throws IOException {
+        DatagramChannel datagramChannel = DatagramChannel.open();
         datagramChannel.configureBlocking(false);
         datagramChannel.bind(listening);
         datagramChannel.connect(sending);
-
-        packetFrameSender = new BufferingPacketFrameSender(datagramChannel, UDP_PACKET_SIZE);
-        packetFrameReceiver = new BufferingPacketFrameReceiver(datagramChannel, UDP_PACKET_SIZE);
+        return new UdpConnection(new DatagramPacketFrameSender(datagramChannel, UDP_PACKET_SIZE), new DatagramPacketFrameReceiver(datagramChannel, UDP_PACKET_SIZE), handler);
     }
 
     public void update() throws IOException {

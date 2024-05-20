@@ -23,9 +23,11 @@ public class PacketTerm {
         boolean endBitSet = (termOffset&FragmentingPacketStream.LAST_MESSAGE_HINT)==FragmentingPacketStream.LAST_MESSAGE_HINT;
         int cleanTermOffset = termOffset& 0x3fffffff;
         if (endBitSet)
-            fragmentAmount = cleanTermOffset;
+            fragmentAmount = cleanTermOffset+1;
 
-        fragments.setSize(Math.max(cleanTermOffset, fragments.size()));
+        System.out.println("added term " + cleanTermOffset);
+
+        fragments.setSize(Math.max(cleanTermOffset+1, fragments.size()));
         fragments.set(cleanTermOffset, message);
         currentlySet.set(cleanTermOffset);
 
@@ -49,7 +51,7 @@ public class PacketTerm {
     private int getMessageBytesTotal() {
         int messageBytesTotal = 0;
         for (ByteBuffer fragment : fragments) {
-            messageBytesTotal+=fragment.limit();
+            messageBytesTotal+=(fragment.remaining());
         }
         return messageBytesTotal;
     }
@@ -62,7 +64,17 @@ public class PacketTerm {
         return complete;
     }
 
-    public BitSet receivedFragments() {
-        return currentlySet;
+    public int[] missingFragmentArray() {
+        int currentPos = 0;
+        int missingIndex = 0;
+
+        int[] missing = new int[fragmentAmount - currentlySet.cardinality()];
+
+        while (missingIndex<missing.length) {
+            currentPos = currentlySet.nextClearBit(currentPos);
+            missing[missingIndex++] = currentPos++;
+        }
+
+        return missing;
     }
 }

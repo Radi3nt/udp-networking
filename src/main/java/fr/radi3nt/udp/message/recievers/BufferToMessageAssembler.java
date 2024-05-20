@@ -2,7 +2,7 @@ package fr.radi3nt.udp.message.recievers;
 
 import fr.radi3nt.udp.message.PacketMessage;
 import fr.radi3nt.udp.message.PacketFrame;
-import fr.radi3nt.udp.message.frame.FrameType;
+import fr.radi3nt.udp.message.frame.FrameHeader;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -14,12 +14,12 @@ import java.util.function.Consumer;
 
 public class BufferToMessageAssembler implements Consumer<ByteBuffer> {
 
-    private final Queue<byte[]> fragments = new ConcurrentLinkedQueue<>();
+    private final Queue<byte[]> messages = new ConcurrentLinkedQueue<>();
 
     @Override
     public void accept(ByteBuffer buffer) {
         byte[] content = buffer.array();
-        fragments.add(Arrays.copyOf(content, buffer.limit()));
+        messages.add(Arrays.copyOf(content, buffer.limit()));
     }
 
     public Collection<PacketFrame> poll() {
@@ -32,20 +32,20 @@ public class BufferToMessageAssembler implements Consumer<ByteBuffer> {
     }
 
     private PacketMessage pollSingle() {
-        byte[] poll = fragments.poll();
+        byte[] poll = messages.poll();
         if (poll == null) return null;
 
-        ByteBuffer fragment = ByteBuffer.wrap(poll);
+        ByteBuffer message = ByteBuffer.wrap(poll);
 
         Collection<PacketFrame> frames = new ArrayList<>();
 
-        while (fragment.remaining()>0) {
-            int frameSize = fragment.getInt();
-            fragment.position(fragment.position() -Integer.BYTES);
+        while (message.remaining()>0) {
+            FrameHeader header = FrameHeader.from(message);
+            int frameSize = header.getContentSize();
             byte[] frame = new byte[frameSize];
-            fragment.get(frame);
+            message.get(frame);
 
-            frames.add(new PacketFrame(FrameType.DATA, frame)); //todo needs to read data from global header
+            frames.add(new PacketFrame(header, frame));
         }
 
         return new PacketMessage(poll.length, frames);

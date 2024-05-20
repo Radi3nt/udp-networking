@@ -1,20 +1,18 @@
+
 package fr.radi3nt.udp.message.recievers;
 
 import fr.radi3nt.udp.message.PacketFrame;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.DatagramChannel;
 import java.util.Collection;
 
-public class BufferingPacketFrameReceiver implements PacketFrameReceiver {
+public abstract class BufferPacketFrameReceiver implements PacketFrameReceiver {
 
-    private final DatagramChannel channel;
     private final ByteBuffer currentBuffer;
     private final BufferToMessageAssembler fragmentConsumer;
 
-    public BufferingPacketFrameReceiver(DatagramChannel channel, int maxDatagramSize) {
-        this.channel = channel;
+    public BufferPacketFrameReceiver(int maxDatagramSize) {
         currentBuffer = ByteBuffer.allocate(maxDatagramSize);
         this.fragmentConsumer = new BufferToMessageAssembler();
     }
@@ -27,7 +25,7 @@ public class BufferingPacketFrameReceiver implements PacketFrameReceiver {
     @Override
     public void receiveMessages() throws IOException {
         currentBuffer.clear();
-        int byteRead = channel.read(currentBuffer);
+        int byteRead = read(currentBuffer);
         if (byteRead == -1) {
             throw new UnsupportedOperationException("Connection closed");
         }
@@ -39,4 +37,6 @@ public class BufferingPacketFrameReceiver implements PacketFrameReceiver {
         currentBuffer.flip();
         fragmentConsumer.accept(currentBuffer);
     }
+
+    protected abstract int read(ByteBuffer currentBuffer) throws IOException;
 }

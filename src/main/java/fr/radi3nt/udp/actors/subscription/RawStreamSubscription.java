@@ -18,7 +18,7 @@ public class RawStreamSubscription implements Subscription {
     @Override
     public void handle(UdpConnection connection, Collection<PacketFrame> frames) {
         for (PacketFrame frame : frames) {
-            if (frame.frameType== FrameType.DATA)
+            if (frame.getType() == FrameType.DATA)
                 dataSubscription.handle(connection, Collections.singleton(frame));
         }
     }

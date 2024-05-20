@@ -1,15 +1,19 @@
 package fr.radi3nt.udp.actors.subscription.fragment.assembler;
 
-import java.util.BitSet;
+import java.util.Arrays;
 
 public class MissingFragments {
 
-    private final BitSet receivedFragments;
+    private final int[] missingFragments;
 
-    public MissingFragments(BitSet receivedFragments) {
-        this.receivedFragments = receivedFragments;
+    public MissingFragments(int[] missingFragments) {
+        this.missingFragments = missingFragments;
     }
 
-
-
+    @Override
+    public String toString() {
+        return "MissingFragments{" +
+                "missingFragments=" + Arrays.toString(missingFragments) +
+                '}';
+    }
 }

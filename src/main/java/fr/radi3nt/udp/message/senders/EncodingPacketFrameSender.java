@@ -1,23 +1,20 @@
 package fr.radi3nt.udp.message.senders;
 
-import fr.radi3nt.udp.message.PacketMessage;
 import fr.radi3nt.udp.message.PacketFrame;
+import fr.radi3nt.udp.message.PacketMessage;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.DatagramChannel;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-public class BufferingPacketFrameSender implements PacketFrameSender {
+public abstract class EncodingPacketFrameSender implements PacketFrameSender {
 
     private final Queue<PacketFrame> frames = new ConcurrentLinkedQueue<>();
-    private final DatagramChannel channel;
-    private final FramesToFragmentAssembler assembler;
+    private final FramesToMessageAssembler assembler;
 
-    public BufferingPacketFrameSender(DatagramChannel channel, int packetSizeLimit) {
-        this.channel = channel;
-        this.assembler = new FramesToFragmentAssembler(packetSizeLimit, this::tryConsumeFragment);
+    public EncodingPacketFrameSender(int packetSizeLimit) {
+        this.assembler = new FramesToMessageAssembler(packetSizeLimit, this::tryConsumeFragment);
     }
 
     @Override
@@ -40,14 +37,13 @@ public class BufferingPacketFrameSender implements PacketFrameSender {
 
     private void consumeFragment(PacketMessage packetMessage) throws IOException {
         ByteBuffer buffer = ByteBuffer.allocate(packetMessage.totalSize);
-        for (PacketFrame frame : packetMessage.frames) {
-            buffer.put(frame.data);
-        }
+        packetMessage.encode(buffer);
 
         buffer.flip();
         System.out.println("sending");
-        int writtenBytes = channel.write(buffer);
+        int writtenBytes = write(buffer);
         System.out.println("sent " + buffer.limit() + "/" + writtenBytes + " bytes");
     }
 
+    protected abstract int write(ByteBuffer buffer) throws IOException;
 }
