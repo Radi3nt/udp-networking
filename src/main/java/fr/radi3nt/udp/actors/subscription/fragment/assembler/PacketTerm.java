@@ -77,4 +77,8 @@ public class PacketTerm {
 
         return missing;
     }
+
+    public int lastReceivedTermOffset() {
+        return currentlySet.length()-1;
+    }
 }
