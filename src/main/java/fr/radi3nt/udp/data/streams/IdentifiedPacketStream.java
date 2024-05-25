@@ -1,6 +1,6 @@
 package fr.radi3nt.udp.data.streams;
 
-import fr.radi3nt.udp.message.frame.FrameDataHeader;
+import fr.radi3nt.udp.headers.FrameDataHeader;
 
 public class IdentifiedPacketStream implements PacketStream {
 
@@ -14,7 +14,7 @@ public class IdentifiedPacketStream implements PacketStream {
 
     @Override
     public void packet(FrameDataHeader header, byte[] data) throws Exception {
-        header.stream.writeLong(streamId);
+        header.streamId = streamId;
         underlying.packet(header, data);
     }
 }

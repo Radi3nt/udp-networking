@@ -1,7 +1,6 @@
-package fr.radi3nt.udp.data.streams.datagram;
+package fr.radi3nt.udp.data.streams;
 
-import fr.radi3nt.udp.message.frame.FrameDataHeader;
-import fr.radi3nt.udp.data.streams.PacketStream;
+import fr.radi3nt.udp.headers.FrameDataHeader;
 import fr.radi3nt.udp.message.frame.FrameHeader;
 import fr.radi3nt.udp.message.frame.FrameType;
 import fr.radi3nt.udp.message.senders.PacketFrameSender;
@@ -10,7 +9,7 @@ import fr.radi3nt.udp.message.PacketFrame;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 
-public class PacketFrameSenderStream implements PacketStream {
+public class PacketFrameSenderStream implements FramedPacketStream {
 
     private final PacketFrameSender packetFrameSender;
 
@@ -19,9 +18,11 @@ public class PacketFrameSenderStream implements PacketStream {
     }
 
     @Override
-    public void packet(FrameDataHeader header, byte[] data) throws IOException {
+    public PacketFrame packetFrame(FrameDataHeader header, byte[] data) throws IOException {
         byte[] fullData = writeFrameContent(header, data).toByteArray();
-        packetFrameSender.addFrame(new PacketFrame(new FrameHeader(FrameType.DATA, fullData.length), fullData));
+        PacketFrame frame = new PacketFrame(new FrameHeader(FrameType.DATA, fullData.length), fullData);
+        packetFrameSender.addFrame(frame);
+        return frame;
     }
 
     private static ByteArrayOutputStream writeFrameContent(FrameDataHeader header, byte[] data) throws IOException {

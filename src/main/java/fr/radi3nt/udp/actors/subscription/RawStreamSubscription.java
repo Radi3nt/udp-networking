@@ -10,9 +10,11 @@ import java.util.Collections;
 public class RawStreamSubscription implements Subscription {
 
     private final Subscription dataSubscription;
+    private final Subscription nakSubscription;
 
-    public RawStreamSubscription(Subscription dataSubscription) {
+    public RawStreamSubscription(Subscription dataSubscription, Subscription nakSubscription) {
         this.dataSubscription = dataSubscription;
+        this.nakSubscription = nakSubscription;
     }
 
     @Override
@@ -20,6 +22,8 @@ public class RawStreamSubscription implements Subscription {
         for (PacketFrame frame : frames) {
             if (frame.getType() == FrameType.DATA)
                 dataSubscription.handle(connection, Collections.singleton(frame));
+            if (frame.getType() == FrameType.NAK)
+                nakSubscription.handle(connection, Collections.singleton(frame));
         }
     }
 }

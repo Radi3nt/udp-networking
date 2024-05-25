@@ -5,6 +5,8 @@ import fr.radi3nt.udp.message.recievers.remote.DatagramPacketFrameReceiver;
 import fr.radi3nt.udp.message.recievers.PacketFrameReceiver;
 import fr.radi3nt.udp.message.senders.remote.DatagramPacketFrameSender;
 import fr.radi3nt.udp.message.senders.PacketFrameSender;
+import fr.radi3nt.udp.reliable.NoReliabilityService;
+import fr.radi3nt.udp.reliable.ReliabilityService;
 
 import java.io.IOException;
 import java.net.SocketAddress;
@@ -16,6 +18,7 @@ public class UdpConnection {
 
     private final PacketFrameSender packetFrameSender;
     private final PacketFrameReceiver packetFrameReceiver;
+    private ReliabilityService reliabilityService;
 
     private final Subscription handler;
 
@@ -23,6 +26,8 @@ public class UdpConnection {
         this.handler = handler;
         packetFrameSender = sender;
         packetFrameReceiver = receiver;
+
+        this.reliabilityService = NoReliabilityService.INSTANCE;
     }
 
     public static UdpConnection remote(SocketAddress sending, SocketAddress listening, Subscription handler) throws IOException {
@@ -34,10 +39,16 @@ public class UdpConnection {
     }
 
     public void update() throws IOException {
+        reliabilityService.update();
+
         packetFrameSender.sendFrames();
         packetFrameReceiver.receiveMessages();
 
         handler.handle(this, packetFrameReceiver.poll());
+    }
+
+    public void setReliabilityService(ReliabilityService reliabilityService) {
+        this.reliabilityService = reliabilityService;
     }
 
     public PacketFrameSender getFragmentProcessor() {

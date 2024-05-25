@@ -40,9 +40,9 @@ public abstract class EncodingPacketFrameSender implements PacketFrameSender {
         packetMessage.encode(buffer);
 
         buffer.flip();
-        System.out.println("sending");
         int writtenBytes = write(buffer);
-        System.out.println("sent " + buffer.limit() + "/" + writtenBytes + " bytes");
+        if (writtenBytes>512)
+            System.out.println("sent " + buffer.limit() + "/" + writtenBytes + " bytes");
     }
 
     protected abstract int write(ByteBuffer buffer) throws IOException;

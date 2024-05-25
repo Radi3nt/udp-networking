@@ -49,6 +49,8 @@ public class FramesToMessageAssembler {
     }
 
     private void sendFragment() {
+        if (messageSize>limitPacketSize)
+            System.out.println("What happened?");
         messageConsumer.accept(new PacketMessage(messageSize, currentMessageFrames));
     }
 

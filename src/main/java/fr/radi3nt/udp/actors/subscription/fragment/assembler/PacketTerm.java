@@ -25,7 +25,7 @@ public class PacketTerm {
         if (endBitSet)
             fragmentAmount = cleanTermOffset+1;
 
-        System.out.println("added term " + cleanTermOffset);
+        //System.out.println("added term " + cleanTermOffset);
 
         fragments.setSize(Math.max(cleanTermOffset+1, fragments.size()));
         fragments.set(cleanTermOffset, message);
@@ -44,6 +44,8 @@ public class PacketTerm {
         for (ByteBuffer fragment : fragments) {
             buffer.put(fragment);
         }
+
+        buffer.flip();
 
         return buffer;
     }
@@ -68,7 +70,7 @@ public class PacketTerm {
         int currentPos = 0;
         int missingIndex = 0;
 
-        int[] missing = new int[fragmentAmount - currentlySet.cardinality()];
+        int[] missing = new int[currentlySet.length() - currentlySet.cardinality()];
 
         while (missingIndex<missing.length) {
             currentPos = currentlySet.nextClearBit(currentPos);

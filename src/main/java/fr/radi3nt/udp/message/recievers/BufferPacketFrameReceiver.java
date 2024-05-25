@@ -32,8 +32,6 @@ public abstract class BufferPacketFrameReceiver implements PacketFrameReceiver {
         if (byteRead==0)
             return;
 
-        System.out.println("read");
-
         currentBuffer.flip();
         fragmentConsumer.accept(currentBuffer);
     }

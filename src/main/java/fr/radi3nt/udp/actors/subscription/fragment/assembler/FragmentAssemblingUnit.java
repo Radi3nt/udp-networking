@@ -20,7 +20,7 @@ public class FragmentAssemblingUnit {
             if (value.termId!=currentTerm) {
                 int[] missingFragmentsArray = value.missingFragmentArray();
                 int lastReceivedOffset = value.lastReceivedTermOffset();
-                missingFragments.add(new MissingFragments(missingFragmentsArray, lastReceivedOffset));
+                missingFragments.add(new MissingFragments(value.termId, missingFragmentsArray, lastReceivedOffset));
             }
         }
         return missingFragments;
@@ -61,7 +61,7 @@ public class FragmentAssemblingUnit {
 
     private void addMissingFrames(long termId) {
         for (long missedTerm = currentTerm+1; missedTerm < termId; missedTerm++) {
-            allMissed.putIfAbsent(missedTerm, new MissingFragments(new int[0], -1));
+            allMissed.putIfAbsent(missedTerm, new MissingFragments(missedTerm, new int[0], -1));
         }
     }
 }
