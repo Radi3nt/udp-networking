@@ -2,7 +2,6 @@ package fr.radi3nt.udp.main;
 
 import fr.radi3nt.udp.actors.connection.RemoteConnectionFactory;
 
-import java.io.IOException;
 import java.net.InetSocketAddress;
 
 public class MainRemoteServerUdpNetwork {

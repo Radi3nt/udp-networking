@@ -3,15 +3,15 @@ package fr.radi3nt.udp.main;
 import fr.radi3nt.udp.actors.connection.ConnectionFactory;
 import fr.radi3nt.udp.actors.connection.UdpConnection;
 import fr.radi3nt.udp.actors.subscription.ConsumerSubscription;
+import fr.radi3nt.udp.actors.subscription.FragmentAssemblerSubscription;
 import fr.radi3nt.udp.actors.subscription.RawStreamSubscription;
-import fr.radi3nt.udp.actors.subscription.Subscription;
+import fr.radi3nt.udp.actors.subscription.fragment.FragmentAssembler;
+import fr.radi3nt.udp.actors.subscription.fragment.FragmentHandler;
 import fr.radi3nt.udp.data.streams.*;
-import fr.radi3nt.udp.message.PacketFrame;
 import fr.radi3nt.udp.reliable.nak.NakReliabilityService;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Random;
@@ -22,18 +22,26 @@ public class UdpServer {
 
     public void start(ConnectionFactory factory) {
         ConsumerSubscription consumerSubscription = new ConsumerSubscription();
-        RawStreamSubscription handler = new RawStreamSubscription(new Subscription() {
-            @Override
-            public void handle(UdpConnection connection, Collection<PacketFrame> frames) {
 
+        Map<Long, FragmentAssembler> assemblerMap = new HashMap<>();
+
+        final FragmentAssembler assembler = new FragmentAssembler(new FragmentHandler() {
+            @Override
+            public void onFragment(UdpConnection from, ByteBuffer buffer, long termId, int termOffset) {
+                long elapsedTime = System.currentTimeMillis()-buffer.getLong();
+                System.out.println("rtt: " + elapsedTime + " ms");
             }
-        }, consumerSubscription);
+        });
+
+        assemblerMap.put(0L, assembler);
+
+        RawStreamSubscription handler = new RawStreamSubscription(new FragmentAssemblerSubscription(assembler), consumerSubscription);
 
         Map<Long, FragmentingPacketStream> streamMap = new HashMap<>();
 
         //UdpConnection connection = new UdpConnection(new LoosingLocalPacketFrameSender(clientReceiver, UdpConnection.UDP_PACKET_SIZE, LOSS_PERCENT), hostReceiver, handler);
         UdpConnection connection = factory.build(handler);
-        connection.setReliabilityService(consumerSubscription.add(new NakReliabilityService(connection, new HashMap<>(), streamMap, UdpConnection.UDP_PACKET_SIZE)));
+        connection.setReliabilityService(consumerSubscription.add(new NakReliabilityService(connection, assemblerMap, streamMap, UdpConnection.UDP_PACKET_SIZE)));
 
         FragmentingPacketStream fragmentingPacketStream = new FragmentingPacketStream(new PacketFrameSenderStream(connection.getFragmentProcessor()), 10);
         PacketStream stream = new IdentifiedPacketStream(0, new ReliablePacketStream(fragmentingPacketStream));

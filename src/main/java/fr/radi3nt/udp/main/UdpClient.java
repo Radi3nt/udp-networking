@@ -3,54 +3,57 @@ package fr.radi3nt.udp.main;
 import fr.radi3nt.udp.actors.connection.ConnectionFactory;
 import fr.radi3nt.udp.actors.connection.UdpConnection;
 import fr.radi3nt.udp.actors.subscription.ConsumerSubscription;
+import fr.radi3nt.udp.actors.subscription.FragmentAssemblerSubscription;
 import fr.radi3nt.udp.actors.subscription.RawStreamSubscription;
-import fr.radi3nt.udp.actors.subscription.Subscription;
 import fr.radi3nt.udp.actors.subscription.fragment.FragmentAssembler;
 import fr.radi3nt.udp.actors.subscription.fragment.FragmentHandler;
-import fr.radi3nt.udp.message.PacketFrame;
+import fr.radi3nt.udp.data.streams.*;
 import fr.radi3nt.udp.reliable.nak.NakReliabilityService;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class UdpClient {
 
     public void start(ConnectionFactory connectionFactory) {
         Map<Long, FragmentAssembler> assemblerMap = new HashMap<>();
 
+        final AtomicReference<PacketStream> stream = new AtomicReference<>();
         final FragmentAssembler assembler = new FragmentAssembler(new FragmentHandler() {
             @Override
             public void onFragment(UdpConnection from, ByteBuffer buffer, long termId, int termOffset) {
+                long sendTime = buffer.getLong();
 
-                long elapsedTime = System.currentTimeMillis()-buffer.getLong();
-                System.out.println("received: " + elapsedTime + " ms");
+                ByteBuffer message = ByteBuffer.allocate(Long.BYTES);
+                message.putLong(sendTime);
+
+                try {
+                    stream.get().packet(message.array());
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
             }
         });
 
         assemblerMap.put(0L, assembler);
 
         ConsumerSubscription consumerSubscription = new ConsumerSubscription();
-        RawStreamSubscription handler = new RawStreamSubscription(new Subscription() {
-
-            @Override
-            public void handle(UdpConnection connection, Collection<PacketFrame> frames) {
-                for (PacketFrame frame : frames) {
-                    ByteBuffer content = frame.getContent();
-                    long streamId = content.getLong();
-                    long termId = content.getLong();
-                    int termOffset = content.getInt();
-                    assembler.onFragment(connection, content, termId, termOffset);
-                }
-            }
-        }, consumerSubscription);
+        RawStreamSubscription handler = new RawStreamSubscription(new FragmentAssemblerSubscription(assembler), consumerSubscription);
 
         //UdpConnection connection = new UdpConnection(new LoosingLocalPacketFrameSender(hostReceiver, UdpConnection.UDP_PACKET_SIZE, LOSS_PERCENT), clientReceiver, handler);
 
+        Map<Long, FragmentingPacketStream> streamMap = new HashMap<>();
+
         UdpConnection connection = connectionFactory.build(handler);
-        connection.setReliabilityService(consumerSubscription.add(new NakReliabilityService(connection, assemblerMap, new HashMap<>(), UdpConnection.UDP_PACKET_SIZE)));
+        connection.setReliabilityService(consumerSubscription.add(new NakReliabilityService(connection, assemblerMap, streamMap, UdpConnection.UDP_PACKET_SIZE)));
+
+        FragmentingPacketStream fragmentingPacketStream = new FragmentingPacketStream(new PacketFrameSenderStream(connection.getFragmentProcessor()), 10);
+        stream.set(new IdentifiedPacketStream(0, new ReliablePacketStream(fragmentingPacketStream)));
+
+        streamMap.put(0L, fragmentingPacketStream);
 
         while (true) {
             try {
