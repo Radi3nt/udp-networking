@@ -1,7 +1,7 @@
 package fr.radi3nt.udp.message.recievers;
 
-import fr.radi3nt.udp.message.PacketMessage;
 import fr.radi3nt.udp.message.PacketFrame;
+import fr.radi3nt.udp.message.PacketMessage;
 import fr.radi3nt.udp.message.frame.FrameHeader;
 
 import java.nio.ByteBuffer;

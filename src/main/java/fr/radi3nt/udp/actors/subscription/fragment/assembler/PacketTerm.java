@@ -25,8 +25,6 @@ public class PacketTerm {
         if (endBitSet)
             fragmentAmount = cleanTermOffset+1;
 
-        //System.out.println("added term " + cleanTermOffset);
-
         fragments.setSize(Math.max(cleanTermOffset+1, fragments.size()));
         fragments.set(cleanTermOffset, message);
         currentlySet.set(cleanTermOffset);
@@ -82,5 +80,9 @@ public class PacketTerm {
 
     public int lastReceivedTermOffset() {
         return currentlySet.length()-1;
+    }
+
+    public BitSet receivedBits() {
+        return currentlySet;
     }
 }

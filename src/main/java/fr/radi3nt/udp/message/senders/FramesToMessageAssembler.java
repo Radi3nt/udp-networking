@@ -1,7 +1,7 @@
 package fr.radi3nt.udp.message.senders;
 
-import fr.radi3nt.udp.message.PacketMessage;
 import fr.radi3nt.udp.message.PacketFrame;
+import fr.radi3nt.udp.message.PacketMessage;
 
 import java.util.ArrayList;
 import java.util.Collection;

@@ -1,10 +1,10 @@
 package fr.radi3nt.udp.actors.connection;
 
 import fr.radi3nt.udp.actors.subscription.Subscription;
-import fr.radi3nt.udp.message.recievers.remote.DatagramPacketFrameReceiver;
 import fr.radi3nt.udp.message.recievers.PacketFrameReceiver;
-import fr.radi3nt.udp.message.senders.remote.DatagramPacketFrameSender;
+import fr.radi3nt.udp.message.recievers.remote.DatagramPacketFrameReceiver;
 import fr.radi3nt.udp.message.senders.PacketFrameSender;
+import fr.radi3nt.udp.message.senders.remote.DatagramPacketFrameSender;
 import fr.radi3nt.udp.reliable.NoReliabilityService;
 import fr.radi3nt.udp.reliable.ReliabilityService;
 

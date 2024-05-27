@@ -28,16 +28,15 @@ public class FragmentAssembler implements FragmentHandler {
             handler.onFragment(from, term.assembledMessage(), termId, 0);
     }
 
-    public Map<UdpConnection, Collection<MissingFragments>> getMissingFragments() {
-        Map<UdpConnection, Collection<MissingFragments>> missingFragments = new HashMap<>();
+    public Map<UdpConnection, MissingFragmentCollection> getMissingFragments() {
+        Map<UdpConnection, MissingFragmentCollection> missingFragments = new HashMap<>();
         for (Map.Entry<UdpConnection, FragmentAssemblingUnit> entry : assemblingUnitMap.entrySet()) {
             UdpConnection connection = entry.getKey();
             FragmentAssemblingUnit assemblingUnit = entry.getValue();
             Collection<MissingFragments> missingParts = assemblingUnit.getMissingParts();
-            if (missingParts.isEmpty())
-                continue;
+            long currentTerm = assemblingUnit.getCurrentTerm();
 
-            missingFragments.put(connection, new ArrayList<>(missingParts));
+            missingFragments.put(connection, new MissingFragmentCollection(currentTerm, new ArrayList<>(missingParts)));
         }
         return missingFragments;
     }

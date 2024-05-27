@@ -18,9 +18,7 @@ public class FragmentAssemblingUnit {
         Collection<MissingFragments> missingFragments = new ArrayList<>(allMissed.values());
         for (PacketTerm value : terms.values()) {
             if (value.termId!=currentTerm) {
-                int[] missingFragmentsArray = value.missingFragmentArray();
-                int lastReceivedOffset = value.lastReceivedTermOffset();
-                missingFragments.add(new MissingFragments(value.termId, missingFragmentsArray, lastReceivedOffset));
+                missingFragments.add(new MissingFragments(value.termId, value.receivedBits()));
             }
         }
         return missingFragments;
@@ -61,7 +59,11 @@ public class FragmentAssemblingUnit {
 
     private void addMissingFrames(long termId) {
         for (long missedTerm = currentTerm+1; missedTerm < termId; missedTerm++) {
-            allMissed.putIfAbsent(missedTerm, new MissingFragments(missedTerm, new int[0], -1));
+            allMissed.putIfAbsent(missedTerm, new MissingFragments(missedTerm, new BitSet()));
         }
+    }
+
+    public long getCurrentTerm() {
+        return currentTerm;
     }
 }

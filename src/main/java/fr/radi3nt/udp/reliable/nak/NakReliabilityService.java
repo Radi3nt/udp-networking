@@ -2,6 +2,7 @@ package fr.radi3nt.udp.reliable.nak;
 
 import fr.radi3nt.udp.actors.connection.UdpConnection;
 import fr.radi3nt.udp.actors.subscription.fragment.FragmentAssembler;
+import fr.radi3nt.udp.actors.subscription.fragment.MissingFragmentCollection;
 import fr.radi3nt.udp.data.streams.FragmentingPacketStream;
 import fr.radi3nt.udp.reliable.ReliabilityService;
 
@@ -28,7 +29,11 @@ public class NakReliabilityService implements ReliabilityService, Consumer<ByteB
     public void update() {
         nakReceiver.resend();
         for (Map.Entry<Long, FragmentAssembler> entry : assemblerMap.entrySet()) {
-            nakSender.request(entry.getKey(), entry.getValue().getMissingFragments().get(connection));
+            Map<UdpConnection, MissingFragmentCollection> missingFragmentsMap = entry.getValue().getMissingFragments();
+            MissingFragmentCollection missingFragments = missingFragmentsMap.get(connection);
+            if (missingFragments==null)
+                return;
+            nakSender.request(entry.getKey(), missingFragments.collection, missingFragments.currentTerm);
         }
     }
 

@@ -1,10 +1,10 @@
 package fr.radi3nt.udp.data.streams;
 
 import fr.radi3nt.udp.headers.FrameDataHeader;
+import fr.radi3nt.udp.message.PacketFrame;
 import fr.radi3nt.udp.message.frame.FrameHeader;
 import fr.radi3nt.udp.message.frame.FrameType;
 import fr.radi3nt.udp.message.senders.PacketFrameSender;
-import fr.radi3nt.udp.message.PacketFrame;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;

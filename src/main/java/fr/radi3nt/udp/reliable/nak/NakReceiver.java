@@ -2,7 +2,6 @@ package fr.radi3nt.udp.reliable.nak;
 
 import fr.radi3nt.udp.actors.subscription.fragment.assembler.MissingFragments;
 import fr.radi3nt.udp.data.streams.FragmentingPacketStream;
-import fr.radi3nt.udp.headers.FrameDataHeader;
 import fr.radi3nt.udp.message.PacketFrame;
 import fr.radi3nt.udp.message.senders.PacketFrameSender;
 
@@ -24,24 +23,28 @@ public class NakReceiver {
         for (Map.Entry<Long, StreamMissed> entry : missedStreams.entrySet()) {
             packetStreamMap.get(entry.getKey()).clearHistory(entry.getValue().lastSuccessfulTerm);
             Collection<PacketFrame> toResend = new HashSet<>();
-            for (ResendingFragment fragment : entry.getValue().fragments) {
+            for (Iterator<ResendingFragment> iterator = entry.getValue().fragments.values().iterator(); iterator.hasNext(); ) {
+                ResendingFragment fragment = iterator.next();
                 if (fragment.sent)
                     continue;
 
-                FrameDataHeader header = new FrameDataHeader(entry.getKey(), fragment.termId, 0);
                 PacketFrame[] frames = packetStreamMap.get(entry.getKey()).getFrames(entry.getKey(), fragment.termId);
-                for (int missingFragment : fragment.missingFragments) {
-                    FrameDataHeader child = header.child();
-                    child.termOffset = missingFragment;
-                    toResend.add(frames[missingFragment]);
+                if (frames == null) {
+                    iterator.remove();
+                    System.err.println("Trying to resend already cleared term " + fragment.termId);
+                    continue;
                 }
-                toResend.addAll(Arrays.asList(frames).subList(fragment.lastReceivedOffset + 1, frames.length));
+
+                int pos = 0;
+
+                while ((pos = fragment.receivedFragmentsBits.nextClearBit(pos)) < frames.length) {
+                    toResend.add(frames[pos]);
+                    pos++;
+                }
                 fragment.sent = true;
             }
 
-            for (PacketFrame packetFrame : toResend) {
-                sender.addFrame(packetFrame);
-            }
+            sender.addFrames(toResend);
         }
     }
 
@@ -53,25 +56,31 @@ public class NakReceiver {
 
         for (int i = 0; i < arrayLength; i++) {
             long termId = frame.getLong();
-            int lastReceivedOffset = frame.getInt();
             int missingFragmentsLength = frame.getInt();
-            int[] missingFragmentsOffsets = new int[missingFragmentsLength];
-            for (int j = 0; j < missingFragmentsLength; j++) {
-                int missingFragment = frame.getInt();
-                missingFragmentsOffsets[j] = missingFragment;
-            }
-            missingFragments.add(new ResendingFragment(termId, missingFragmentsOffsets, lastReceivedOffset));
+            byte[] missingFragmentsOffsets = new byte[missingFragmentsLength];
+            frame.get(missingFragmentsOffsets, 0, missingFragmentsOffsets.length);
+            BitSet set = BitSet.valueOf(missingFragmentsOffsets);
+
+            missingFragments.add(new ResendingFragment(termId, set));
         }
+
         long minTermId = frame.getLong();
         StreamMissed streamMissed = missedStreams.computeIfAbsent(streamId, aLong -> new StreamMissed());
-        streamMissed.fragments.removeAll(missingFragments);
-        streamMissed.fragments.addAll(missingFragments);
+        for (ResendingFragment missingFragment : missingFragments) {
+            ResendingFragment resendingFragment = streamMissed.fragments.get(missingFragment.termId);
+            if (resendingFragment==null)
+                streamMissed.fragments.put(missingFragment.termId, missingFragment);
+            else {
+                resendingFragment.receivedFragmentsBits.or(missingFragment.receivedFragmentsBits);
+                resendingFragment.sent = false;
+            }
+        }
         streamMissed.lastSuccessfulTerm = minTermId;
     }
 
     public static class StreamMissed {
 
-        public final Collection<ResendingFragment> fragments = new HashSet<>();
+        public final Map<Long, ResendingFragment> fragments = new HashMap<>();
         public long lastSuccessfulTerm;
 
     }
@@ -81,11 +90,9 @@ public class NakReceiver {
 
         public boolean sent;
 
-        public ResendingFragment(long termId, int[] missingFragments, int lastReceivedOffset) {
-            super(termId, missingFragments, lastReceivedOffset);
+        public ResendingFragment(long termId, BitSet receivedFragmentsBits) {
+            super(termId, receivedFragmentsBits);
         }
-
-
     }
 
 }

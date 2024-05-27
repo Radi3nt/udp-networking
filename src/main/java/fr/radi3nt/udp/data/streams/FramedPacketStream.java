@@ -1,7 +1,7 @@
 package fr.radi3nt.udp.data.streams;
 
-import fr.radi3nt.udp.message.PacketFrame;
 import fr.radi3nt.udp.headers.FrameDataHeader;
+import fr.radi3nt.udp.message.PacketFrame;
 
 public interface FramedPacketStream extends PacketStream {
 

@@ -6,7 +6,6 @@ import fr.radi3nt.udp.actors.subscription.ConsumerSubscription;
 import fr.radi3nt.udp.actors.subscription.FragmentAssemblerSubscription;
 import fr.radi3nt.udp.actors.subscription.RawStreamSubscription;
 import fr.radi3nt.udp.actors.subscription.fragment.FragmentAssembler;
-import fr.radi3nt.udp.actors.subscription.fragment.FragmentHandler;
 import fr.radi3nt.udp.data.streams.*;
 import fr.radi3nt.udp.reliable.nak.NakReliabilityService;
 
@@ -25,12 +24,9 @@ public class UdpServer {
 
         Map<Long, FragmentAssembler> assemblerMap = new HashMap<>();
 
-        final FragmentAssembler assembler = new FragmentAssembler(new FragmentHandler() {
-            @Override
-            public void onFragment(UdpConnection from, ByteBuffer buffer, long termId, int termOffset) {
-                long elapsedTime = System.currentTimeMillis()-buffer.getLong();
-                System.out.println("rtt: " + elapsedTime + " ms");
-            }
+        final FragmentAssembler assembler = new FragmentAssembler((from, buffer, termId, termOffset) -> {
+            long elapsedTime = System.currentTimeMillis()-buffer.getLong();
+            System.out.println("rtt: " + elapsedTime + " ms");
         });
 
         assemblerMap.put(0L, assembler);
@@ -39,46 +35,32 @@ public class UdpServer {
 
         Map<Long, FragmentingPacketStream> streamMap = new HashMap<>();
 
-        //UdpConnection connection = new UdpConnection(new LoosingLocalPacketFrameSender(clientReceiver, UdpConnection.UDP_PACKET_SIZE, LOSS_PERCENT), hostReceiver, handler);
         UdpConnection connection = factory.build(handler);
-        connection.setReliabilityService(consumerSubscription.add(new NakReliabilityService(connection, assemblerMap, streamMap, UdpConnection.UDP_PACKET_SIZE)));
+        NakReliabilityService reliabilityService = new NakReliabilityService(connection, assemblerMap, streamMap, UdpConnection.UDP_PACKET_SIZE);
+        connection.setReliabilityService(consumerSubscription.add(reliabilityService));
 
-        FragmentingPacketStream fragmentingPacketStream = new FragmentingPacketStream(new PacketFrameSenderStream(connection.getFragmentProcessor()), 10);
+        FragmentingPacketStream fragmentingPacketStream = new FragmentingPacketStream(new PacketFrameSenderStream(connection.getFragmentProcessor()), 460);
         PacketStream stream = new IdentifiedPacketStream(0, new ReliablePacketStream(fragmentingPacketStream));
 
         streamMap.put(0L, fragmentingPacketStream);
 
-        Thread thread = new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    /*
-                    byte[] data = new byte[940];
-                    for (int i = 0; i < data.length; i++) {
-                        data[i] = (byte) i;
-                    }
-                    stream.packet(data);
-                    sleep(3);
-                    stream.packet(new byte[1]);
-                    sleep(5);
-                    stream.packet(new byte[] {1, 3, 7, 9});
-                    sleep(2);
-                    stream.packet(new byte[] {9, 8, 3, 3});
-                    sleep(10);
-                    stream.packet(new byte[] {9, 4, 3, 2});
+        Thread thread = new Thread(() -> {
+            try {
+                Random random = new Random();
+                int loopI = 0;
+                while (true) {
+                    byte[] message = new byte[(int) (Long.BYTES + 200 * (Math.pow(1024, 2)))];
+                    ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+                    buffer.putLong(System.currentTimeMillis());
+                    buffer.flip();
+                    buffer.get(message, 0, Long.BYTES);
 
-                     */
-                    Random random = new Random();
-                    while (true) {
-                        ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
-                        buffer.putLong(System.currentTimeMillis());
-                        buffer.flip();
-                        stream.packet(buffer.array());
-                        sleep(100);
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
+                    stream.packet(buffer.array());
+                    sleep(1000);
+                    loopI++;
                 }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
         });
         thread.start();
