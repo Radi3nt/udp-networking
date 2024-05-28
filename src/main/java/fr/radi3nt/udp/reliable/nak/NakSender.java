@@ -8,17 +8,18 @@ import fr.radi3nt.udp.message.senders.PacketFrameSender;
 
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
+import java.util.*;
 
 import static fr.radi3nt.udp.data.streams.FragmentingPacketStream.LAST_MESSAGE_HINT;
 import static fr.radi3nt.udp.message.frame.FrameHeader.HEADER_SIZE_BYTES;
 
 public class NakSender {
 
+    private static final int IDEAL_BIT_SET_SIZE = 512-20-20-HEADER_SIZE_BYTES;
+    private static final int MAX_BITS = (IDEAL_BIT_SET_SIZE*8-7)/8;
+
     private static final int MESSAGE_ADDITIONAL_DATA_BYTES = 2*Long.BYTES + Integer.BYTES;
-    private static final int MISSING_FRAGMENT_HEADER_BYTES = Long.BYTES + Integer.BYTES;
+    private static final int MISSING_FRAGMENT_HEADER_BYTES = Long.BYTES + 3*Integer.BYTES;
     private final PacketFrameSender frameSender;
     private final int totalSize;
 
@@ -57,41 +58,28 @@ public class NakSender {
         int currentSize = 0;
         Collection<ByteArrayOutputStream> doneSteams = new ArrayList<>();
 
+        int estimatedSize;
+
         for (IncompleteFragments fragment : relevantFragments) {
             fragment.sent();
 
-            int notSetBits = fragment.receivedFragmentsBits.length() - fragment.receivedFragmentsBits.cardinality();
-            int supposedBitSetBytesArrayLength = (fragment.receivedFragmentsBits.length()+7)/8;
+            BitSet currentSet = fragment.receivedFragmentsBits;
+            long termId = fragment.termId;
+
+            int notSetBits = currentSet.length() - currentSet.cardinality();
+            int supposedBitSetBytesArrayLength = (currentSet.length()+7)/8;
             boolean sendingArray = notSetBits*Integer.BYTES+Integer.BYTES < supposedBitSetBytesArrayLength;
 
-            byte[] array;
-            if (sendingArray) {
-                ByteBuffer buffer = ByteBuffer.allocate(notSetBits*Integer.BYTES+Integer.BYTES);
+            estimatedSize = (sendingArray ? notSetBits*Integer.BYTES+Integer.BYTES : supposedBitSetBytesArrayLength)+MESSAGE_ADDITIONAL_DATA_BYTES+MISSING_FRAGMENT_HEADER_BYTES;
 
-                buffer.putInt(fragment.receivedFragmentsBits.length());
-
-                int pos = 0;
-                while ((pos = fragment.receivedFragmentsBits.nextClearBit(pos))<fragment.receivedFragmentsBits.length()) {
-                    buffer.putInt(pos);
-                    pos++;
+            if (estimatedSize>totalSize) {
+                int split = (int) Math.ceil((float) estimatedSize/totalSize);
+                for (int i = 0; i < split; i++) {
+                    currentSize = encodeAndPossiblySend(streamId, currentSet.get(i*MAX_BITS, (i+1)*MAX_BITS), termId, currentSize, doneSteams, minTermId, i*MAX_BITS, (i+1)*MAX_BITS);
                 }
-
-                array = buffer.array();
             } else {
-                array = fragment.receivedFragmentsBits.toByteArray();
+                currentSize = encodeAndPossiblySend(streamId, currentSet, termId, currentSize, doneSteams, minTermId, 0, Integer.MAX_VALUE);
             }
-
-            ByteBuffer header = ByteBuffer.allocate(MISSING_FRAGMENT_HEADER_BYTES);
-            encodeFragmentHeader(fragment, array.length, sendingArray, header);
-
-            ByteArrayOutputStream completedFragment = new ByteArrayOutputStream();
-            completedFragment.write(header.array(), 0, header.position());
-            completedFragment.write(array, 0, array.length);
-
-            currentSize = sendAlreadyEncodedIfTooLargeToAddNew(streamId, currentSize, completedFragment, doneSteams, minTermId);
-
-            currentSize += completedFragment.size();
-            doneSteams.add(completedFragment);
 
         }
 
@@ -99,8 +87,48 @@ public class NakSender {
 
     }
 
+    private int encodeAndPossiblySend(long streamId, BitSet currentSet, long termId, int currentSize, Collection<ByteArrayOutputStream> doneSteams, long minTermId, int offset, int ends) {
+        int notSetBits = currentSet.length() - currentSet.cardinality();
+        int supposedBitSetBytesArrayLength = (currentSet.length()+7)/8;
+        boolean sendingArray = notSetBits*Integer.BYTES+Integer.BYTES < supposedBitSetBytesArrayLength;
+
+        byte[] array;
+        if (sendingArray) {
+            ByteBuffer buffer = ByteBuffer.allocate(notSetBits *Integer.BYTES+Integer.BYTES);
+
+            buffer.putInt(currentSet.length());
+
+            int pos = 0;
+            while ((pos = currentSet.nextClearBit(pos))< currentSet.length()) {
+                buffer.putInt(pos);
+                pos++;
+            }
+
+            array = buffer.array();
+        } else {
+            array = currentSet.toByteArray();
+        }
+
+        ByteBuffer header = ByteBuffer.allocate(MISSING_FRAGMENT_HEADER_BYTES);
+        encodeFragmentHeader(termId, array.length, sendingArray, header, offset, ends);
+
+        ByteArrayOutputStream completedFragment = new ByteArrayOutputStream();
+        completedFragment.write(header.array(), 0, header.position());
+        completedFragment.write(array, 0, array.length);
+
+        currentSize = sendAlreadyEncodedIfTooLargeToAddNew(streamId, currentSize, completedFragment, doneSteams, minTermId);
+
+        currentSize += completedFragment.size();
+
+        if (currentSize>totalSize)
+            System.out.println("what?");
+
+        doneSteams.add(completedFragment);
+        return currentSize;
+    }
+
     private int sendAlreadyEncodedIfTooLargeToAddNew(long streamId, int currentSize, ByteArrayOutputStream completedFragment, Collection<ByteArrayOutputStream> doneSteams, long minTermId) {
-        if (currentSize!=0 && currentSize + completedFragment.size()+MESSAGE_ADDITIONAL_DATA_BYTES+MISSING_FRAGMENT_HEADER_BYTES+Integer.BYTES>totalSize) {
+        if (currentSize!=0 && currentSize + completedFragment.size()+MESSAGE_ADDITIONAL_DATA_BYTES>totalSize) {
             sendComplete(streamId, currentSize, doneSteams, minTermId);
             doneSteams.clear();
             currentSize = 0;
@@ -133,9 +161,11 @@ public class NakSender {
         currentMessage.putInt(doneSteams.size());
     }
 
-    private static void encodeFragmentHeader(IncompleteFragments fragment, int encodedMessages, boolean sendingArray, ByteBuffer currentMessage) {
-        currentMessage.putLong(fragment.termId);
+    private static void encodeFragmentHeader(long termId, int encodedMessages, boolean sendingArray, ByteBuffer currentMessage, int start, int end) {
+        currentMessage.putLong(termId);
         currentMessage.putInt(sendingArray ? (encodedMessages|LAST_MESSAGE_HINT) : encodedMessages);
+        currentMessage.putInt(start);
+        currentMessage.putInt(end);
     }
 
 }
