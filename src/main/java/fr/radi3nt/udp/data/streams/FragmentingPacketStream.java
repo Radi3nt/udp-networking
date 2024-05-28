@@ -35,12 +35,16 @@ public class FragmentingPacketStream implements PacketStream {
             outputStream.reset();
             writeFragmentToStream(data, outputStream, fragmentPart);
 
-            PacketFrame frame = underlying.packetFrame(child, outputStream.toByteArray());
+            PacketFrame frame = underlying.buildFrame(child, outputStream.toByteArray());
             frames[fragmentPart] = frame;
         }
 
         Map<Long, PacketFrame[]> termIdFramesMap = frameMap.computeIfAbsent(header.streamId, aLong -> new ConcurrentHashMap<>());
         termIdFramesMap.put(header.termId, frames);
+
+        for (PacketFrame frame : frames) {
+            underlying.sendFrame(frame);
+        }
     }
 
     public PacketFrame[] getFrames(long streamId, long termId) {

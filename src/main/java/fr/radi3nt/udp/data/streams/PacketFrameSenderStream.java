@@ -19,10 +19,20 @@ public class PacketFrameSenderStream implements FramedPacketStream {
 
     @Override
     public PacketFrame packetFrame(FrameDataHeader header, byte[] data) throws IOException {
-        byte[] fullData = writeFrameContent(header, data).toByteArray();
-        PacketFrame frame = new PacketFrame(new FrameHeader(FrameType.DATA, fullData.length), fullData);
-        packetFrameSender.addFrame(frame);
+        PacketFrame frame = buildFrame(header, data);
+        sendFrame(frame);
         return frame;
+    }
+
+    @Override
+    public PacketFrame buildFrame(FrameDataHeader header, byte[] data) throws IOException {
+        byte[] fullData = writeFrameContent(header, data).toByteArray();
+        return new PacketFrame(new FrameHeader(FrameType.DATA, fullData.length), fullData);
+    }
+
+    @Override
+    public void sendFrame(PacketFrame frame) {
+        packetFrameSender.addFrame(frame);
     }
 
     private static ByteArrayOutputStream writeFrameContent(FrameDataHeader header, byte[] data) throws IOException {
