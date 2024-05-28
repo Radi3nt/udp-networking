@@ -2,7 +2,7 @@ package fr.radi3nt.udp.actors.subscription.fragment;
 
 import fr.radi3nt.udp.actors.connection.UdpConnection;
 import fr.radi3nt.udp.actors.subscription.fragment.assembler.FragmentAssemblingUnit;
-import fr.radi3nt.udp.actors.subscription.fragment.assembler.MissingFragments;
+import fr.radi3nt.udp.actors.subscription.fragment.assembler.IncompleteFragments;
 import fr.radi3nt.udp.actors.subscription.fragment.assembler.PacketTerm;
 
 import java.nio.ByteBuffer;
@@ -33,7 +33,7 @@ public class FragmentAssembler implements FragmentHandler {
         for (Map.Entry<UdpConnection, FragmentAssemblingUnit> entry : assemblingUnitMap.entrySet()) {
             UdpConnection connection = entry.getKey();
             FragmentAssemblingUnit assemblingUnit = entry.getValue();
-            Collection<MissingFragments> missingParts = assemblingUnit.getMissingParts();
+            Collection<IncompleteFragments> missingParts = assemblingUnit.getMissingParts();
             long currentTerm = assemblingUnit.getCurrentTerm();
 
             missingFragments.put(connection, new MissingFragmentCollection(currentTerm, new ArrayList<>(missingParts)));

@@ -52,7 +52,7 @@ public class FragmentingPacketStream implements PacketStream {
 
     public void clearHistory(long termId) {
         if (lastCleared<termId)
-            frameMap.forEach((aLong, longMap) -> longMap.keySet().removeIf(entry -> entry < termId));
+            frameMap.forEach((aLong, longMap) -> longMap.keySet().removeIf(entry -> entry <= termId));
         lastCleared = termId;
     }
 

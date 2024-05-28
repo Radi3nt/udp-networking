@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class UdpClient {
 
     public void start(ConnectionFactory connectionFactory) {
-        Map<Long, FragmentAssembler> assemblerMap = new HashMap<>();
+
 
         final AtomicReference<PacketStream> stream = new AtomicReference<>();
         final FragmentAssembler assembler = new FragmentAssembler((from, buffer, termId, termOffset) -> {
@@ -26,6 +26,7 @@ public class UdpClient {
 
             ByteBuffer message = ByteBuffer.allocate((int) (Long.BYTES + 1 * (Math.pow(1024, 2))));
             message.putLong(sendTime);
+            message.putLong(System.currentTimeMillis());
 
             try {
                 stream.get().packet(message.array());
@@ -34,17 +35,16 @@ public class UdpClient {
             }
         });
 
-        assemblerMap.put(0L, assembler);
-
         ConsumerSubscription consumerSubscription = new ConsumerSubscription();
         RawStreamSubscription handler = new RawStreamSubscription(new FragmentAssemblerSubscription(assembler), consumerSubscription);
 
-        //UdpConnection connection = new UdpConnection(new LoosingLocalPacketFrameSender(hostReceiver, UdpConnection.UDP_PACKET_SIZE, LOSS_PERCENT), clientReceiver, handler);
+        Map<Long, FragmentAssembler> assemblerMap = new HashMap<>();
+        assemblerMap.put(0L, assembler);
 
         Map<Long, FragmentingPacketStream> streamMap = new HashMap<>();
 
         UdpConnection connection = connectionFactory.build(handler);
-        connection.setReliabilityService(consumerSubscription.add(new NakReliabilityService(connection, assemblerMap, streamMap, UdpConnection.UDP_PACKET_SIZE)));
+        connection.setReliabilityService(consumerSubscription.add(new NakReliabilityService(connection, assemblerMap, streamMap, UdpConnection.UDP_PACKET_SIZE, 100)));
 
         FragmentingPacketStream fragmentingPacketStream = new FragmentingPacketStream(new PacketFrameSenderStream(connection.getFragmentProcessor()), 460);
         stream.set(new IdentifiedPacketStream(0, new ReliablePacketStream(fragmentingPacketStream)));

@@ -13,7 +13,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Random;
 
 import static fr.radi3nt.udp.main.Constants.sleep;
 
@@ -26,7 +25,9 @@ public class UdpServer {
 
         final FragmentAssembler assembler = new FragmentAssembler((from, buffer, termId, termOffset) -> {
             long elapsedTime = System.currentTimeMillis()-buffer.getLong();
-            System.out.println("rtt: " + elapsedTime + " ms");
+            long elapsedTimeFromResend = System.currentTimeMillis()-buffer.getLong();
+            long elapsedTimeFromSend = elapsedTime-elapsedTimeFromResend;
+            System.out.println("rtt: " + elapsedTime + " ms | sent time: " + elapsedTimeFromSend + " | resend time: " + elapsedTimeFromResend);
         });
 
         assemblerMap.put(0L, assembler);
@@ -36,7 +37,7 @@ public class UdpServer {
         Map<Long, FragmentingPacketStream> streamMap = new HashMap<>();
 
         UdpConnection connection = factory.build(handler);
-        NakReliabilityService reliabilityService = new NakReliabilityService(connection, assemblerMap, streamMap, UdpConnection.UDP_PACKET_SIZE);
+        NakReliabilityService reliabilityService = new NakReliabilityService(connection, assemblerMap, streamMap, UdpConnection.UDP_PACKET_SIZE, 100);
         connection.setReliabilityService(consumerSubscription.add(reliabilityService));
 
         FragmentingPacketStream fragmentingPacketStream = new FragmentingPacketStream(new PacketFrameSenderStream(connection.getFragmentProcessor()), 460);
@@ -46,8 +47,6 @@ public class UdpServer {
 
         Thread thread = new Thread(() -> {
             try {
-                Random random = new Random();
-                int loopI = 0;
                 while (true) {
                     byte[] message = new byte[(int) (Long.BYTES + 200 * (Math.pow(1024, 2)))];
                     ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
@@ -56,8 +55,7 @@ public class UdpServer {
                     buffer.get(message, 0, Long.BYTES);
 
                     stream.packet(buffer.array());
-                    sleep(1000);
-                    loopI++;
+                    sleep(500);
                 }
             } catch (Exception e) {
                 e.printStackTrace();

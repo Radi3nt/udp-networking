@@ -8,5 +8,6 @@ public interface PacketFrameSender {
 
     void addFrame(PacketFrame frame);
     void addFrames(Collection<PacketFrame> frame);
+    void addMissingFrames(Collection<PacketFrame> frame);
     void sendFrames();
 }

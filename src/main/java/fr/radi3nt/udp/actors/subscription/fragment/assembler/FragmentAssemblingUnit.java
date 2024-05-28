@@ -6,7 +6,8 @@ import java.util.*;
 public class FragmentAssemblingUnit {
 
     private final Map<Long, PacketTerm> terms = new HashMap<>();
-    private final Map<Long, MissingFragments> allMissed = new HashMap<>();
+    private final Map<Long, IncompleteFragments> missedFragments = new HashMap<>();
+    private final Map<Long, IncompleteFragments> incompleteFragments = new HashMap<>();
     private long currentTerm;
     private boolean first = true;
 
@@ -14,14 +15,10 @@ public class FragmentAssemblingUnit {
 
     }
 
-    public Collection<MissingFragments> getMissingParts() {
-        Collection<MissingFragments> missingFragments = new ArrayList<>(allMissed.values());
-        for (PacketTerm value : terms.values()) {
-            if (value.termId!=currentTerm) {
-                missingFragments.add(new MissingFragments(value.termId, value.receivedBits()));
-            }
-        }
-        return missingFragments;
+    public Collection<IncompleteFragments> getMissingParts() {
+        Collection<IncompleteFragments> incompleteFragments = new ArrayList<>(missedFragments.values());
+        incompleteFragments.addAll(this.incompleteFragments.values());
+        return incompleteFragments;
     }
 
     public PacketTerm provide(ByteBuffer message, long termId, int termOffset) {
@@ -44,22 +41,32 @@ public class FragmentAssemblingUnit {
 
         packetTerm.add(termOffset, message);
 
-        if (!packetTerm.isCompleted())
+        if (!packetTerm.isCompleted()) {
+            IncompleteFragments incompleteFragments = this.incompleteFragments.get(termId);
+            if (incompleteFragments ==null) {
+                this.incompleteFragments.put(termId, new IncompleteFragments(termId, packetTerm.receivedBits()));
+            } else {
+                incompleteFragments.receivedFragmentsBits = packetTerm.receivedBits();
+                incompleteFragments.refreshed();
+            }
+
             return null;
+        }
 
         terms.remove(termId);
+        incompleteFragments.remove(termId);
 
         return packetTerm;
     }
 
     private PacketTerm getOldFrameIfWasMissing(long termId) {
-        MissingFragments removed = allMissed.remove(termId);
+        IncompleteFragments removed = missedFragments.remove(termId);
         return removed != null ? terms.computeIfAbsent(termId, PacketTerm::new) : terms.get(termId);
     }
 
     private void addMissingFrames(long termId) {
         for (long missedTerm = currentTerm+1; missedTerm < termId; missedTerm++) {
-            allMissed.putIfAbsent(missedTerm, new MissingFragments(missedTerm, new BitSet()));
+            missedFragments.putIfAbsent(missedTerm, new IncompleteFragments(missedTerm, new BitSet()));
         }
     }
 

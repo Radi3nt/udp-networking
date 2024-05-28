@@ -20,6 +20,11 @@ public class DummyFrameSender implements PacketFrameSender {
     }
 
     @Override
+    public void addMissingFrames(Collection<PacketFrame> frame) {
+
+    }
+
+    @Override
     public void sendFrames() {
 
     }
