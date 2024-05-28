@@ -12,6 +12,8 @@ public class RawStreamSubscription implements Subscription {
     private final Subscription dataSubscription;
     private final Subscription nakSubscription;
 
+    private float[] traffic = new float[2];
+
     public RawStreamSubscription(Subscription dataSubscription, Subscription nakSubscription) {
         this.dataSubscription = dataSubscription;
         this.nakSubscription = nakSubscription;
@@ -20,10 +22,22 @@ public class RawStreamSubscription implements Subscription {
     @Override
     public void handle(UdpConnection connection, Collection<PacketFrame> frames) {
         for (PacketFrame frame : frames) {
-            if (frame.getType() == FrameType.DATA)
+            if (frame.getType() == FrameType.DATA) {
+                traffic[0] += frame.getTotalFrameSize();
                 dataSubscription.handle(connection, Collections.singleton(frame));
-            if (frame.getType() == FrameType.NAK)
+            }
+            if (frame.getType() == FrameType.NAK) {
+                traffic[1] += frame.getTotalFrameSize();
                 nakSubscription.handle(connection, Collections.singleton(frame));
+            }
         }
+    }
+
+    public float[] traffic() {
+        return traffic;
+    }
+
+    public void resetTraffic() {
+        traffic = new float[2];
     }
 }

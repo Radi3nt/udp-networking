@@ -8,20 +8,20 @@ import fr.radi3nt.udp.message.senders.PacketFrameSender;
 import java.nio.ByteBuffer;
 import java.util.*;
 
-import static fr.radi3nt.udp.data.streams.FragmentingPacketStream.LAST_MESSAGE_HINT;
-
 public class NakReceiver {
 
     private final Map<Long, StreamMissed> missedStreams = new HashMap<>();
     private final Map<Long, FragmentingPacketStream> packetStreamMap;
     private final PacketFrameSender sender;
 
-    private final int resendingTimeout;
+    private final int activeTimeout;
+    private final int inactiveTimeout;
 
-    public NakReceiver(Map<Long, FragmentingPacketStream> packetStreamMap, PacketFrameSender sender, int resendingTimeout) {
+    public NakReceiver(Map<Long, FragmentingPacketStream> packetStreamMap, PacketFrameSender sender, int activeTimeout, int inactiveTimeout) {
         this.packetStreamMap = packetStreamMap;
         this.sender = sender;
-        this.resendingTimeout = resendingTimeout;
+        this.activeTimeout = activeTimeout;
+        this.inactiveTimeout = inactiveTimeout;
     }
 
     public void resend() {
@@ -31,14 +31,13 @@ public class NakReceiver {
             packetStreamMap.get(entry.getKey()).clearHistory(lastSuccessfulTerm);
 
             Collection<PacketFrame> toResend = new HashSet<>();
-            int fragmentNeedingResend = 0;
             for (Iterator<IncompleteFragments> iterator = entry.getValue().fragments.values().iterator(); iterator.hasNext(); ) {
                 IncompleteFragments fragment = iterator.next();
                 if (fragment.termId<=lastSuccessfulTerm) {
                     iterator.remove();
                     continue;
                 }
-                if (!fragment.needResending(resendingTimeout))
+                if (fragment.resendingNotNeeded(activeTimeout, inactiveTimeout))
                     continue;
 
                 PacketFrame[] frames = packetStreamMap.get(entry.getKey()).getFrames(entry.getKey(), fragment.termId);
@@ -107,8 +106,8 @@ public class NakReceiver {
             else {
                 BitSet oldSet = (BitSet) resendingFragment.receivedFragmentsBits.clone();
                 resendingFragment.receivedFragmentsBits.or(missingFragment.receivedFragmentsBits);
-                //if (!oldSet.equals(resendingFragment.receivedFragmentsBits))
-                //    resendingFragment.refreshed();
+                if (!oldSet.equals(resendingFragment.receivedFragmentsBits))
+                    resendingFragment.refreshed();
             }
         }
 
@@ -119,7 +118,7 @@ public class NakReceiver {
     public static class StreamMissed {
 
         public final Map<Long, IncompleteFragments> fragments = new HashMap<>();
-        public long lastSuccessfulTerm;
+        public long lastSuccessfulTerm = -1;
 
     }
 

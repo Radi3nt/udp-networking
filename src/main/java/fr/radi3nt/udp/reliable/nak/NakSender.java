@@ -23,17 +23,19 @@ public class NakSender {
     private final int totalSize;
 
     private long lastSent = System.currentTimeMillis();
-    private final int fragmentResendTimeout;
+    private final int activeTimeout;
+    private final int inactiveTimeout;
 
-    public NakSender(PacketFrameSender frameSender, int totalSize, int fragmentResendTimeout) {
+    public NakSender(PacketFrameSender frameSender, int totalSize, int activeTimeout, int inactiveTimeout) {
         this.frameSender = frameSender;
         this.totalSize = totalSize-HEADER_SIZE_BYTES;
-        this.fragmentResendTimeout = fragmentResendTimeout;
+        this.activeTimeout = activeTimeout;
+        this.inactiveTimeout = inactiveTimeout;
     }
 
     public void request(long streamId, Collection<IncompleteFragments> fragments, long currentTerm) {
         Collection<IncompleteFragments> relevantFragments = new ArrayList<>(fragments);
-        relevantFragments.removeIf((f) -> !f.needResending(fragmentResendTimeout));
+        relevantFragments.removeIf((f) -> f.resendingNotNeeded(activeTimeout, inactiveTimeout));
 
         boolean empty = relevantFragments.isEmpty();
 

@@ -37,7 +37,7 @@ public class UdpServer {
         Map<Long, FragmentingPacketStream> streamMap = new HashMap<>();
 
         UdpConnection connection = factory.build(handler);
-        NakReliabilityService reliabilityService = new NakReliabilityService(connection, assemblerMap, streamMap, UdpConnection.UDP_PACKET_SIZE, 100);
+        NakReliabilityService reliabilityService = new NakReliabilityService(connection, assemblerMap, streamMap, UdpConnection.UDP_PACKET_SIZE, Constants.ACTIVE_TIMEOUT, Constants.INACTIVE_TIMEOUT);
         connection.setReliabilityService(consumerSubscription.add(reliabilityService));
 
         FragmentingPacketStream fragmentingPacketStream = new FragmentingPacketStream(new PacketFrameSenderStream(connection.getFragmentProcessor()), 460);
@@ -48,11 +48,9 @@ public class UdpServer {
         Thread thread = new Thread(() -> {
             try {
                 while (true) {
-                    byte[] message = new byte[(int) (Long.BYTES + 200 * (Math.pow(1024, 2)))];
-                    ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+                    ByteBuffer buffer = ByteBuffer.allocate((int) (Long.BYTES + 1.5 * (Math.pow(1024, 2))));
                     buffer.putLong(System.currentTimeMillis());
                     buffer.flip();
-                    buffer.get(message, 0, Long.BYTES);
 
                     stream.packet(buffer.array());
                     sleep(500);

@@ -25,8 +25,9 @@ public class IncompleteFragments {
         lastSent = System.currentTimeMillis();
     }
 
-    public boolean needResending(int resendingTimeout) {
-        return !sent || ((System.currentTimeMillis()-lastSent)>resendingTimeout);
+    public boolean resendingNotNeeded(int activeResendingTimeout, int inactiveResendingTimeout) {
+        long timeDiff = (System.currentTimeMillis()-lastSent);
+        return sent ? timeDiff <= inactiveResendingTimeout : timeDiff <= activeResendingTimeout;
     }
 
     @Override

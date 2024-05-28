@@ -38,13 +38,32 @@ public class UdpClient {
         ConsumerSubscription consumerSubscription = new ConsumerSubscription();
         RawStreamSubscription handler = new RawStreamSubscription(new FragmentAssemblerSubscription(assembler), consumerSubscription);
 
+        Thread thread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                while (true) {
+                    float[] traffic = handler.traffic();
+                    float dataTraffic = traffic[0]/1024f/1024;
+                    float nakTraffic = traffic[1]/1024f/1024;
+                    System.out.println(dataTraffic + " mb/s of data, " + nakTraffic + " mb/s of nak");
+                    handler.resetTraffic();
+                    try {
+                        Thread.sleep(1_000);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+        });
+        thread.start();
+
         Map<Long, FragmentAssembler> assemblerMap = new HashMap<>();
         assemblerMap.put(0L, assembler);
 
         Map<Long, FragmentingPacketStream> streamMap = new HashMap<>();
 
         UdpConnection connection = connectionFactory.build(handler);
-        connection.setReliabilityService(consumerSubscription.add(new NakReliabilityService(connection, assemblerMap, streamMap, UdpConnection.UDP_PACKET_SIZE, 100)));
+        connection.setReliabilityService(consumerSubscription.add(new NakReliabilityService(connection, assemblerMap, streamMap, UdpConnection.UDP_PACKET_SIZE, Constants.ACTIVE_TIMEOUT, Constants.INACTIVE_TIMEOUT)));
 
         FragmentingPacketStream fragmentingPacketStream = new FragmentingPacketStream(new PacketFrameSenderStream(connection.getFragmentProcessor()), 460);
         stream.set(new IdentifiedPacketStream(0, new ReliablePacketStream(fragmentingPacketStream)));

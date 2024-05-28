@@ -18,11 +18,11 @@ public class NakReliabilityService implements ReliabilityService, Consumer<ByteB
 
     private final Map<Long, FragmentAssembler> assemblerMap;
 
-    public NakReliabilityService(UdpConnection connection, Map<Long, FragmentAssembler> assemblerMap, Map<Long, FragmentingPacketStream> streamMap, int totalSize, int resendTimeout) {
+    public NakReliabilityService(UdpConnection connection, Map<Long, FragmentAssembler> assemblerMap, Map<Long, FragmentingPacketStream> streamMap, int totalSize, int activeTimeout, int inactiveTimeout) {
         this.connection = connection;
         this.assemblerMap = assemblerMap;
-        this.nakReceiver = new NakReceiver(streamMap, connection.getFragmentProcessor(), resendTimeout);
-        this.nakSender = new NakSender(connection.getFragmentProcessor(), totalSize, resendTimeout);
+        this.nakReceiver = new NakReceiver(streamMap, connection.getFragmentProcessor(), activeTimeout, inactiveTimeout);
+        this.nakSender = new NakSender(connection.getFragmentProcessor(), totalSize, activeTimeout, inactiveTimeout);
     }
 
     @Override
