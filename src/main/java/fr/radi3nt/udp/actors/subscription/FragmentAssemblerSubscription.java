@@ -19,10 +19,13 @@ public class FragmentAssemblerSubscription implements Subscription {
     public void handle(UdpConnection connection, Collection<PacketFrame> frames) {
         for (PacketFrame frame : frames) {
             ByteBuffer content = frame.getContent();
-            long streamId = content.getLong();
+
+            content.position(Long.BYTES);
+
             long termId = content.getLong();
             int termOffset = content.getInt();
-            assembler.onFragment(connection, content, termId, termOffset);
+            ByteBuffer messageContent = content.slice();
+            assembler.onFragment(connection, messageContent, termId, termOffset);
         }
     }
 }
