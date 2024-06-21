@@ -10,28 +10,38 @@ import java.util.*;
 
 public class NakReceiver {
 
-    private final Map<Long, StreamMissed> missedStreams = new HashMap<>();
-    private final Map<Long, FragmentingPacketStream> packetStreamMap;
+    private static final int MAX_RESEND = 100;
+    private final Vector<StreamMissed> missedStreams = new Vector<>();
     private final PacketFrameSender sender;
 
     private final int activeTimeout;
     private final int inactiveTimeout;
 
-    public NakReceiver(Map<Long, FragmentingPacketStream> packetStreamMap, PacketFrameSender sender, int activeTimeout, int inactiveTimeout) {
-        this.packetStreamMap = packetStreamMap;
+    public NakReceiver(Vector<FragmentingPacketStream> packetStreamMap, PacketFrameSender sender, int activeTimeout, int inactiveTimeout) {
         this.sender = sender;
         this.activeTimeout = activeTimeout;
         this.inactiveTimeout = inactiveTimeout;
+
+        missedStreams.setSize(packetStreamMap.size());
+        for (int i = 0; i < packetStreamMap.size(); i++) {
+            missedStreams.set(i, new StreamMissed(packetStreamMap.get(i)));
+        }
     }
 
     public void resend() {
-        for (Map.Entry<Long, StreamMissed> entry : missedStreams.entrySet()) {
-            long lastSuccessfulTerm = entry.getValue().lastSuccessfulTerm;
+        for (int streamId = 0, size = missedStreams.size(); streamId < size; streamId++) {
+            StreamMissed missedStream = missedStreams.get(streamId);
+            if (missedStream==null)
+                continue;
 
-            packetStreamMap.get(entry.getKey()).clearHistory(lastSuccessfulTerm);
+            long lastSuccessfulTerm = missedStream.lastSuccessfulTerm;
+            missedStream.stream.clearHistory(lastSuccessfulTerm);
+
+            if (missedStream.fragments.isEmpty())
+                continue;
 
             Collection<PacketFrame> toResend = new HashSet<>();
-            for (Iterator<ResendingFragment> iterator = entry.getValue().fragments.values().iterator(); iterator.hasNext(); ) {
+            for (Iterator<ResendingFragment> iterator = missedStream.fragments.values().iterator(); iterator.hasNext(); ) {
                 ResendingFragment fragment = iterator.next();
                 if (fragment.termId<=lastSuccessfulTerm) {
                     iterator.remove();
@@ -40,7 +50,7 @@ public class NakReceiver {
                 if (fragment.resendingNotNeeded(activeTimeout, inactiveTimeout))
                     continue;
 
-                PacketFrame[] frames = packetStreamMap.get(entry.getKey()).getFrames(entry.getKey(), fragment.termId);
+                PacketFrame[] frames = missedStream.stream.getFrames(streamId, fragment.termId);
                 if (frames == null) {
                     iterator.remove();
                     System.err.println("Trying to resend already cleared term " + fragment.termId);
@@ -51,11 +61,15 @@ public class NakReceiver {
 
                 while ((pos = fragment.receivedFragmentsBits.nextClearBit(pos)) < Math.min(fragment.endsSure, frames.length)) {
                     toResend.add(frames[pos]);
+                    if (toResend.size()>MAX_RESEND)
+                        break;
                     pos++;
                 }
                 fragment.sent();
             }
 
+            if (toResend.isEmpty())
+                continue;
             sender.addMissingFrames(toResend);
         }
     }
@@ -69,27 +83,14 @@ public class NakReceiver {
         for (int i = 0; i < arrayLength; i++) {
             long termId = frame.getLong();
             int rawMissingFragmentsLength = frame.getInt();
-            int missingFragmentsLength = (rawMissingFragmentsLength& 0x3fffffff);
-            boolean arraySent = missingFragmentsLength!=rawMissingFragmentsLength;
 
             int starts = frame.getInt();
             int ends = frame.getInt();
 
-            byte[] missingFragmentsOffsets = new byte[missingFragmentsLength];
+            byte[] missingFragmentsOffsets = new byte[(rawMissingFragmentsLength)];
             frame.get(missingFragmentsOffsets, 0, missingFragmentsOffsets.length);
 
-            BitSet set;
-            if (arraySent) {
-                ByteBuffer missingFragmentsBuffer = ByteBuffer.wrap(missingFragmentsOffsets);
-                int bitSetSize = missingFragmentsBuffer.getInt();
-                set = new BitSet(bitSetSize);
-                set.set(0, bitSetSize);
-                while (missingFragmentsBuffer.remaining()>0) {
-                    set.clear(missingFragmentsBuffer.getInt());
-                }
-            } else {
-                set = BitSet.valueOf(missingFragmentsOffsets);
-            }
+            BitSet set = BitSet.valueOf(missingFragmentsOffsets);
 
             BitSet toApplySet = set;
             if (starts!=0) {
@@ -105,7 +106,7 @@ public class NakReceiver {
         }
 
         long minTermId = frame.getLong();
-        StreamMissed streamMissed = missedStreams.computeIfAbsent(streamId, aLong -> new StreamMissed());
+        StreamMissed streamMissed = missedStreams.get((int) streamId);
 
         streamMissed.lastSuccessfulTerm = Math.max(streamMissed.lastSuccessfulTerm, minTermId);
         streamMissed.fragments.values().removeIf(value -> value.termId <= streamMissed.lastSuccessfulTerm);
@@ -145,8 +146,12 @@ public class NakReceiver {
     public static class StreamMissed {
 
         public final Map<Long, ResendingFragment> fragments = new HashMap<>();
+        public final FragmentingPacketStream stream;
         public long lastSuccessfulTerm = -1;
 
+        public StreamMissed(FragmentingPacketStream stream) {
+            this.stream = stream;
+        }
     }
 
 }

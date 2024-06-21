@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Vector;
 
 import static fr.radi3nt.udp.main.Constants.sleep;
 
@@ -34,16 +35,18 @@ public class UdpServer {
 
         RawStreamSubscription handler = new RawStreamSubscription(new FragmentAssemblerSubscription(assembler), consumerSubscription);
 
-        Map<Long, FragmentingPacketStream> streamMap = new HashMap<>();
+        Vector<FragmentingPacketStream> streamMap = new Vector<>();
 
         UdpConnection connection = factory.build(handler);
-        NakReliabilityService reliabilityService = new NakReliabilityService(connection, assemblerMap, streamMap, UdpConnection.UDP_PACKET_SIZE, Constants.ACTIVE_TIMEOUT, Constants.INACTIVE_TIMEOUT);
-        connection.setReliabilityService(consumerSubscription.add(reliabilityService));
+
 
         FragmentingPacketStream fragmentingPacketStream = new FragmentingPacketStream(new PacketFrameSenderStream(connection.getFragmentProcessor()), 460);
         PacketStream stream = new IdentifiedPacketStream(0, new ReliablePacketStream(fragmentingPacketStream));
 
-        streamMap.put(0L, fragmentingPacketStream);
+        streamMap.add(fragmentingPacketStream);
+
+        NakReliabilityService reliabilityService = new NakReliabilityService(connection, assemblerMap, streamMap, UdpConnection.UDP_PACKET_SIZE, Constants.ACTIVE_TIMEOUT, Constants.INACTIVE_TIMEOUT);
+        connection.setReliabilityService(consumerSubscription.add(reliabilityService));
 
         Thread thread = new Thread(() -> {
             try {

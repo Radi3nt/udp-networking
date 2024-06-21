@@ -8,18 +8,17 @@ import fr.radi3nt.udp.reliable.ReliabilityService;
 
 import java.nio.ByteBuffer;
 import java.util.Map;
+import java.util.Vector;
 import java.util.function.Consumer;
 
 public class NakReliabilityService implements ReliabilityService, Consumer<ByteBuffer> {
 
-    private final UdpConnection connection;
     private final NakReceiver nakReceiver;
     private final NakSender nakSender;
 
     private final Map<Long, FragmentAssembler> assemblerMap;
 
-    public NakReliabilityService(UdpConnection connection, Map<Long, FragmentAssembler> assemblerMap, Map<Long, FragmentingPacketStream> streamMap, int totalSize, int activeTimeout, int inactiveTimeout) {
-        this.connection = connection;
+    public NakReliabilityService(UdpConnection connection, Map<Long, FragmentAssembler> assemblerMap, Vector<FragmentingPacketStream> streamMap, int totalSize, int activeTimeout, int inactiveTimeout) {
         this.assemblerMap = assemblerMap;
         this.nakReceiver = new NakReceiver(streamMap, connection.getFragmentProcessor(), activeTimeout, inactiveTimeout);
         this.nakSender = new NakSender(connection.getFragmentProcessor(), totalSize, activeTimeout, inactiveTimeout);
@@ -29,11 +28,10 @@ public class NakReliabilityService implements ReliabilityService, Consumer<ByteB
     public void update() {
         nakReceiver.resend();
         for (Map.Entry<Long, FragmentAssembler> entry : assemblerMap.entrySet()) {
-            Map<UdpConnection, MissingFragmentCollection> missingFragmentsMap = entry.getValue().getMissingFragments();
-            MissingFragmentCollection missingFragments = missingFragmentsMap.get(connection);
+            MissingFragmentCollection missingFragments = entry.getValue().getMissingFragments();
             if (missingFragments==null)
                 return;
-            nakSender.request(entry.getKey(), missingFragments.collection, missingFragments.currentTerm);
+            nakSender.request(entry.getKey(), missingFragments.collection, missingFragments.minTerm);
         }
     }
 

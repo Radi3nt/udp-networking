@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Vector;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class UdpClient {
@@ -60,15 +61,15 @@ public class UdpClient {
         Map<Long, FragmentAssembler> assemblerMap = new HashMap<>();
         assemblerMap.put(0L, assembler);
 
-        Map<Long, FragmentingPacketStream> streamMap = new HashMap<>();
+        Vector<FragmentingPacketStream> streamMap = new Vector<>();
 
         UdpConnection connection = connectionFactory.build(handler);
-        connection.setReliabilityService(consumerSubscription.add(new NakReliabilityService(connection, assemblerMap, streamMap, UdpConnection.UDP_PACKET_SIZE, Constants.ACTIVE_TIMEOUT, Constants.INACTIVE_TIMEOUT)));
-
         FragmentingPacketStream fragmentingPacketStream = new FragmentingPacketStream(new PacketFrameSenderStream(connection.getFragmentProcessor()), 460);
         stream.set(new IdentifiedPacketStream(0, new ReliablePacketStream(fragmentingPacketStream)));
 
-        streamMap.put(0L, fragmentingPacketStream);
+        streamMap.add(fragmentingPacketStream);
+
+        connection.setReliabilityService(consumerSubscription.add(new NakReliabilityService(connection, assemblerMap, streamMap, UdpConnection.UDP_PACKET_SIZE, Constants.ACTIVE_TIMEOUT, Constants.INACTIVE_TIMEOUT)));
 
         while (true) {
             try {
