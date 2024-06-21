@@ -7,14 +7,14 @@ import fr.radi3nt.udp.message.frame.FrameType;
 import java.util.Collection;
 import java.util.Collections;
 
-public class RawStreamSubscription implements Subscription {
+public class FilteringFrameTypeSubscription implements Subscription {
 
     private final Subscription dataSubscription;
     private final Subscription nakSubscription;
 
     private float[] traffic = new float[2];
 
-    public RawStreamSubscription(Subscription dataSubscription, Subscription nakSubscription) {
+    public FilteringFrameTypeSubscription(Subscription dataSubscription, Subscription nakSubscription) {
         this.dataSubscription = dataSubscription;
         this.nakSubscription = nakSubscription;
     }
