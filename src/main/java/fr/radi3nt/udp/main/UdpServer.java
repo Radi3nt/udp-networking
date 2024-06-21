@@ -3,8 +3,9 @@ package fr.radi3nt.udp.main;
 import fr.radi3nt.udp.actors.connection.ConnectionFactory;
 import fr.radi3nt.udp.actors.connection.UdpConnection;
 import fr.radi3nt.udp.actors.subscription.ConsumerSubscription;
+import fr.radi3nt.udp.actors.subscription.FilteringFrameTypeSubscription;
 import fr.radi3nt.udp.actors.subscription.FragmentAssemblerSubscription;
-import fr.radi3nt.udp.actors.subscription.RawStreamSubscription;
+import fr.radi3nt.udp.actors.subscription.StreamSubscription;
 import fr.radi3nt.udp.actors.subscription.fragment.FragmentAssembler;
 import fr.radi3nt.udp.data.streams.*;
 import fr.radi3nt.udp.reliable.nak.NakReliabilityService;
@@ -33,7 +34,7 @@ public class UdpServer {
 
         assemblerMap.put(0L, assembler);
 
-        RawStreamSubscription handler = new RawStreamSubscription(new FragmentAssemblerSubscription(assembler), consumerSubscription);
+        FilteringFrameTypeSubscription handler = new FilteringFrameTypeSubscription(StreamSubscription.fromArray(new FragmentAssemblerSubscription(assembler)), consumerSubscription);
 
         Vector<FragmentingPacketStream> streamMap = new Vector<>();
 
