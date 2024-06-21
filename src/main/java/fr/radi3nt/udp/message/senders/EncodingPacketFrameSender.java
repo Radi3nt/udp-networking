@@ -5,7 +5,8 @@ import fr.radi3nt.udp.message.PacketMessage;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.util.*;
+import java.util.Collection;
+import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 public abstract class EncodingPacketFrameSender implements PacketFrameSender {
@@ -29,7 +30,7 @@ public abstract class EncodingPacketFrameSender implements PacketFrameSender {
 
     @Override
     public void addMissingFrames(Collection<PacketFrame> frame) {
-        frame.removeAll(new ArrayList<>(frames));
+        frame.removeAll(frames);
         frames.addAll(frame);
     }
 
