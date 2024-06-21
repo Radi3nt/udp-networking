@@ -21,31 +21,19 @@ public class FragmentAssemblingUnit {
     public PacketTerm provide(ByteBuffer message, long termId, int termOffset) {
         PacketTerm packetTerm;
 
-        if (first) {
-            packetTerm = terms.computeIfAbsent(termId, PacketTerm::new);
-            first = false;
-        } else {
-            boolean advancingFrame = currentTerm<termId;
-            if (advancingFrame) {
-                addMissingFrames(termId);
-                currentTerm = termId;
-                packetTerm = terms.computeIfAbsent(termId, PacketTerm::new);
-            } else {
-                packetTerm = getOldFrameIfWasMissing(termId);
-                if (packetTerm == null) return null;
-            }
-        }
+        packetTerm = getCurrentPacketTerm(termId);
+        if (packetTerm == null) return null;
 
         packetTerm.add(termOffset, message);
 
         if (!packetTerm.isCompleted()) {
             IncompleteFragments incompleteFragments = this.incompleteFragments.get(termId);
-            if (incompleteFragments ==null) {
-                this.incompleteFragments.put(termId, new IncompleteFragments(termId, packetTerm.receivedBits()));
-            } else {
-                incompleteFragments.receivedFragmentsBits = packetTerm.receivedBits();
-                incompleteFragments.refreshed();
+            if (incompleteFragments == null) {
+                return null;
             }
+
+            incompleteFragments.receivedFragmentsBits = packetTerm.receivedBits();
+            incompleteFragments.refreshed();
 
             return null;
         }
@@ -56,18 +44,52 @@ public class FragmentAssemblingUnit {
         return packetTerm;
     }
 
-    private PacketTerm getOldFrameIfWasMissing(long termId) {
-        IncompleteFragments removed = incompleteFragments.remove(termId);
-        return removed != null ? terms.computeIfAbsent(termId, PacketTerm::new) : terms.get(termId);
+    private PacketTerm getCurrentPacketTerm(long termId) {
+        if (first) {
+            first = false;
+            return newTerm(termId);
+        }
+
+        PacketTerm packetTerm;
+
+        boolean advancingFrame = currentTerm< termId;
+        if (advancingFrame) {
+            addMissingFrames(termId);
+            currentTerm = termId;
+            packetTerm = newTerm(termId);
+        } else {
+            packetTerm = getExistingFrame(termId);
+        }
+        return packetTerm;
+    }
+
+    private PacketTerm newTerm(long termId) {
+        return terms.computeIfAbsent(termId, PacketTerm::new);
+    }
+
+    private PacketTerm getExistingFrame(long termId) {
+        return terms.get(termId);
     }
 
     private void addMissingFrames(long termId) {
+        PacketTerm wasCurrentTerm = terms.get(currentTerm);
+        if (wasCurrentTerm!=null && !wasCurrentTerm.isCompleted()) {
+            incompleteFragments.putIfAbsent(currentTerm, new IncompleteFragments(currentTerm, wasCurrentTerm.receivedBits()));
+        }
+
         for (long missedTerm = currentTerm+1; missedTerm < termId; missedTerm++) {
             incompleteFragments.putIfAbsent(missedTerm, new IncompleteFragments(missedTerm, new BitSet()));
+            newTerm(missedTerm);
         }
     }
 
-    public long getCurrentTerm() {
-        return currentTerm;
+    public long getMinTerm() {
+        long minTerm = Long.MAX_VALUE;
+        for (Long l : terms.keySet()) {
+            minTerm = Math.min(l-1, minTerm);
+        }
+        if (minTerm==Long.MAX_VALUE)
+            return -1;
+        return minTerm;
     }
 }

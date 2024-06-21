@@ -6,11 +6,11 @@ import java.util.Collection;
 
 public class MissingFragmentCollection {
 
-    public final long currentTerm;
+    public final long minTerm;
     public final Collection<IncompleteFragments> collection;
 
-    public MissingFragmentCollection(long currentTerm, Collection<IncompleteFragments> collection) {
-        this.currentTerm = currentTerm;
+    public MissingFragmentCollection(long minTerm, Collection<IncompleteFragments> collection) {
+        this.minTerm = minTerm;
         this.collection = collection;
     }
 }
